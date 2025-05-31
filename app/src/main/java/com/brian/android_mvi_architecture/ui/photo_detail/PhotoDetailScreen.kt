@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -55,37 +56,19 @@ fun PhotoDetailScreen(
     }
 
     val state by viewModel.uiState.collectAsState()
-    when (state) {
-        is PhotoDetailUiState.Loading -> {}
-        is PhotoDetailUiState.Success -> {
-            val photoUi = (state as PhotoDetailUiState.Success).photoUi
-            PhotoDetailContent(
-                photoUi = photoUi,
-                navigateUp = navigateUp,
-                onToggleFavourite = { id, isFavourite ->
-                    viewModel.processIntent(PhotoDetailIntent.UpdatePhotoState(id, isFavourite))
-                }
-            )
-        }
-
-        is PhotoDetailUiState.Error -> {}
-    }
-
-}
-
-@Composable
-private fun PhotoDetailContent(
-    photoUi: PhotoUi,
-    navigateUp: () -> Unit,
-    onToggleFavourite: (photoId: Int, isFavourite: Boolean) -> Unit
-) {
+    val photoUi = state.asPhotoUiOrEmpty()
 
     var isShowDialogConfirmation by rememberSaveable { mutableStateOf(false) }
 
     if (isShowDialogConfirmation) {
         DislikeConfirmationDialog(
             onConfirm = {
-                onToggleFavourite(photoUi.id, false)
+                viewModel.processIntent(
+                    intent = PhotoDetailIntent.UpdatePhotoState(
+                        photoId = photoUi.id,
+                        false
+                    )
+                )
                 isShowDialogConfirmation = false
             },
             onDismiss = {
@@ -93,37 +76,91 @@ private fun PhotoDetailContent(
             }
         )
     }
+
     Scaffold(
         topBar = {
             PhotoDetailToolbar(
                 photoUi = photoUi,
                 navigateUp = navigateUp,
+                enable = state is PhotoDetailUiState.Success,
                 onToggleFavourite = {
                     if (photoUi.isFavourite) {
                         isShowDialogConfirmation = true
                     } else {
-                        onToggleFavourite(photoUi.id, true)
+                        viewModel.processIntent(
+                            intent = PhotoDetailIntent.UpdatePhotoState(
+                                photoId = photoUi.id,
+                                true
+                            )
+                        )
                     }
-                }
-            )
+                })
         }
     ) { contentPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(contentPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            PhotoImage(
-                photoUi.imageUrl,
-                photoUi.title
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            PhotoTitle(photoUi.title)
-            Spacer(modifier = Modifier.height(8.dp))
+        when (state) {
+            is PhotoDetailUiState.Loading -> {
+                ShowLoading(contentPadding = contentPadding)
+            }
 
+            is PhotoDetailUiState.Success -> {
+                val photoUi = (state as PhotoDetailUiState.Success).photoUi
+                PhotoDetailContent(photoUi = photoUi, contentPadding)
+            }
+
+            is PhotoDetailUiState.Error -> {
+                ShowError(contentPadding = contentPadding)
+            }
         }
+    }
+}
+
+
+@Composable
+private fun ShowLoading(contentPadding: PaddingValues = PaddingValues(0.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Loading...")
+    }
+}
+
+@Composable
+private fun PhotoDetailContent(
+    photoUi: PhotoUi,
+    contentPadding: PaddingValues,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        PhotoImage(
+            photoUi.imageUrl,
+            photoUi.title
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        PhotoTitle(photoUi.title)
+        Spacer(modifier = Modifier.height(8.dp))
+
+    }
+}
+
+@Composable
+private fun ShowError(contentPadding: PaddingValues) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(contentPadding),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Something went wrong 😢")
     }
 }
 
@@ -153,6 +190,7 @@ private fun PhotoTitle(title: String) {
 private fun PhotoDetailToolbar(
     photoUi: PhotoUi,
     navigateUp: () -> Unit,
+    enable: Boolean,
     onToggleFavourite: (PhotoUi) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -167,7 +205,7 @@ private fun PhotoDetailToolbar(
             }
         },
         actions = {
-            IconButton(onClick = { onToggleFavourite(photoUi) }) {
+            IconButton(onClick = { onToggleFavourite(photoUi) }, enabled = enable) {
                 Icon(
                     imageVector = if (photoUi.isFavourite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                     contentDescription = "back"

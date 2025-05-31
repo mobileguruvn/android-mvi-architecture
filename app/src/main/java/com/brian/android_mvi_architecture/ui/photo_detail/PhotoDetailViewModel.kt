@@ -73,3 +73,7 @@ sealed class PhotoDetailIntent {
     data class FetchPhotoDetail(val photoId: Int) : PhotoDetailIntent()
     data class UpdatePhotoState(val photoId: Int, val isFavourite: Boolean) : PhotoDetailIntent()
 }
+
+fun PhotoDetailUiState.asPhotoUiOrEmpty(): PhotoUi {
+    return (this as? PhotoDetailUiState.Success)?.photoUi ?: PhotoUi.EMPTY_PHOTO_UI
+}
